@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, StatusBar, Text, View } from 'react-native';
+import { Platform, StatusBar, Text, View, NativeModules, NativeEventEmitter } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ProtectionScreen from './src/screens/ProtectionScreen';
 import DetailsScreen from './src/screens/DetailsScreen';
 import { COLORS, FONTS } from './src/theme';
+import { logBlockedMessage } from './src/services/spamDatabase';
 
 const Tab = createBottomTabNavigator();
 
@@ -17,6 +18,25 @@ function TabIcon({ emoji, focused }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const { SmsReceiverModule } = NativeModules;
+    if (!SmsReceiverModule) return;
+
+    const emitter = new NativeEventEmitter(SmsReceiverModule);
+    const sub = emitter.addListener('onSmsReceived', event => {
+      if (event?.blocked) {
+        logBlockedMessage(
+          event.number,
+          event.body?.slice(0, 100) ?? '',
+          '850 premium-rate prefix or numeric pattern',
+          'spam',
+        ).catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
