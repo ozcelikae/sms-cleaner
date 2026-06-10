@@ -100,10 +100,10 @@ class SmsReceiver : BroadcastReceiver() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Spam Uyarıları",
+                "Spam Alerts",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Spam SMS tespit edildiğinde bildirim gösterir"
+                description = "Shows a notification when a spam SMS is detected"
                 enableVibration(true)
             }
             notifManager.createNotificationChannel(channel)
@@ -122,10 +122,10 @@ class SmsReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("🚫 Spam SMS Tespit Edildi")
+            .setContentTitle("🚫 Spam SMS Detected")
             .setContentText("$number: $preview")
             .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("Gönderen: $number\n\n$body\n\nBu mesajı Mesajlar uygulamasından silebilirsiniz."))
+                .bigText("From: $number\n\n$body\n\nYou can delete this message from your Messages app."))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

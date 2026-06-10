@@ -46,8 +46,8 @@ export default function App() {
                 <TabIcon emoji="📊" focused={focused} />
               ),
           })}>
-          <Tab.Screen name="Koruma" component={ProtectionScreen} />
-          <Tab.Screen name="Ayrıntılar" component={DetailsScreen} />
+          <Tab.Screen name="Protection" component={ProtectionScreen} />
+          <Tab.Screen name="Details" component={DetailsScreen} />
         </Tab.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

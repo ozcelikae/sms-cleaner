@@ -1,23 +1,23 @@
 /**
  * Number Analyzer Engine
- * Regex + puan sistemi ile numara analizi
+ * Score-based analysis for detecting spam/short-code senders
  */
 
 export const SCORE_THRESHOLD = 60;
 
-/** Sadece rakamlardan oluşuyor mu? */
+/** Check if the number contains only digits */
 function isNumericOnly(number) {
   return /^\d+$/.test(number.trim());
 }
 
-/** Tekrarlayan rakamlar: 111111, 999999 */
+/** Check for repeating digits: 111111, 999999 */
 function hasRepeatingDigits(number) {
   const cleaned = number.replace(/\D/g, '');
   if (cleaned.length < 4) return false;
   return /^(\d)\1{3,}$/.test(cleaned);
 }
 
-/** Sıralı rakamlar: 123456, 654321 */
+/** Check for sequential digits: 123456, 654321 */
 function hasSequentialDigits(number) {
   const cleaned = number.replace(/\D/g, '');
   if (cleaned.length < 4) return false;
@@ -30,26 +30,26 @@ function hasSequentialDigits(number) {
   return asc || desc;
 }
 
-/** Kısa kod: 4-6 haneli (servis numaraları) */
+/** Check for short code: 4–6 digit service numbers */
 function isShortCode(number) {
   const cleaned = number.replace(/\D/g, '');
   return cleaned.length >= 4 && cleaned.length <= 6;
 }
 
-/** 850 ile başlayan numaralar (Türkiye ücretli hatlar) */
+/** Check for 850-prefix numbers (Turkey premium-rate lines) */
 function starts850(number) {
   const cleaned = number.replace(/\D/g, '');
   return cleaned.startsWith('850') || cleaned.startsWith('90850');
 }
 
-/** Uluslararası format (+90...) → güvenli */
+/** International format (+90...) → always safe */
 function isInternationalFormat(number) {
   return number.trim().startsWith('+');
 }
 
 /**
- * Ana analiz fonksiyonu
- * Döner: { score, reasons, shouldBlock, category }
+ * Main analysis function
+ * Returns: { score, reasons, shouldBlock, category }
  */
 export function analyzeNumber(rawNumber) {
   if (!rawNumber || typeof rawNumber !== 'string') {
@@ -60,35 +60,35 @@ export function analyzeNumber(rawNumber) {
   let score = 0;
   const reasons = [];
 
-  // Uluslararası format → güvenli kabul et
+  // International format → always safe
   if (isInternationalFormat(number)) {
     return { score: 0, reasons: [], shouldBlock: false, category: 'allowed' };
   }
 
-  // 850 ile başlayanlar
+  // 850-prefix premium-rate numbers
   if (starts850(number)) {
     score += 70;
-    reasons.push('850 ile başlayan ücretli hat');
+    reasons.push('850 premium-rate prefix');
   }
 
-  // Sadece rakam içerenler
+  // Numeric-only senders
   if (isNumericOnly(number)) {
     score += 40;
-    reasons.push('Sadece rakamlardan oluşuyor');
+    reasons.push('Numeric-only sender');
 
     if (hasRepeatingDigits(number)) {
       score += 30;
-      reasons.push('Tekrarlayan rakamlar');
+      reasons.push('Repeating digits');
     }
 
     if (hasSequentialDigits(number)) {
       score += 30;
-      reasons.push('Sıralı rakamlar');
+      reasons.push('Sequential digits');
     }
 
     if (isShortCode(number)) {
       score += 20;
-      reasons.push('Kısa kod (servis numarası)');
+      reasons.push('Short code (service number)');
     }
   }
 

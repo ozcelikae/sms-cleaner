@@ -24,23 +24,23 @@ export default function DetailsScreen() {
     <View style={styles.container}>
       {/* Cards row */}
       <View style={styles.row}>
-        {/* Sol kart — Engelleme Prensibi */}
+        {/* Left card — Blocking Principle */}
         <View style={[styles.card, styles.cardLeft]}>
           <Text style={styles.cardIcon}>🔍</Text>
-          <Text style={styles.cardTitle}>Engelleme Prensibi</Text>
+          <Text style={styles.cardTitle}>Blocking Principle</Text>
           <Text style={styles.cardBody}>
-            Sadece rakamlardan oluşan numaralar, tekrarlayan (111111) ve sıralı
-            (123456) diziler, 850 ile başlayan numaralar ve bilinen spam
-            numaralar otomatik engellenir.
+            Numbers containing only digits, repeating (111111) and sequential
+            (123456) patterns, numbers starting with 850, and known spam
+            numbers are automatically blocked.
           </Text>
         </View>
 
-        {/* Sağ kart — Engellenen Sayısı */}
+        {/* Right card — Blocked Count */}
         <View style={[styles.card, styles.cardRight]}>
           <Text style={styles.cardIcon}>🚫</Text>
-          <Text style={styles.cardTitle}>Şimdiye Kadar Engellenen</Text>
+          <Text style={styles.cardTitle}>Blocked So Far</Text>
           <Text style={styles.bigNumber}>{blockedCount}</Text>
-          <Text style={styles.bigNumberLabel}>SMS engellendi</Text>
+          <Text style={styles.bigNumberLabel}>SMS blocked</Text>
         </View>
       </View>
 

@@ -20,14 +20,14 @@ import { COLORS, FONTS } from '../theme';
 const { width } = Dimensions.get('window');
 const S = width * 0.44;
 
-// Durum sabitleri
+// Status constants
 const STATUS = {
-  UNPROTECTED: 'unprotected', // İzin yok
-  PENDING: 'pending',          // iOS: "Evet" dendi ama extension henüz çalışmadı
-  PROTECTED: 'protected',      // Gerçekten korunuyor
+  UNPROTECTED: 'unprotected', // No permission granted
+  PENDING: 'pending',          // iOS: user confirmed but extension not yet verified
+  PROTECTED: 'protected',      // Fully active
 };
 
-// ─── iOS Kılavuz Modal ────────────────────────────────────────────────────────
+// ─── iOS Guide Modal ──────────────────────────────────────────────────────────
 function IosGuideModal({ visible, onGoSettings, onClose }) {
   return (
     <Modal
@@ -37,13 +37,13 @@ function IosGuideModal({ visible, onGoSettings, onClose }) {
       onRequestClose={onClose}>
       <View style={modal.overlay}>
         <View style={modal.sheet}>
-          <Text style={modal.title}>iOS SMS Filtresi Nasıl Açılır?</Text>
+          <Text style={modal.title}>How to Enable iOS SMS Filter?</Text>
           {[
-            { n: '1', t: '"Ayarlar" uygulamasını aç' },
-            { n: '2', t: 'Aşağı kaydır → "Mesajlar" a dokun' },
-            { n: '3', t: '"Bilinmeyen ve Spam" a dokun' },
-            { n: '4', t: '"SMS Filtrelemesini Etkinleştir" toggle\'ını aç' },
-            { n: '5', t: 'Listeden "SMS Cleaner" i seç ve kaydet' },
+            { n: '1', t: 'Open the "Settings" app' },
+            { n: '2', t: 'Scroll down and tap "Messages"' },
+            { n: '3', t: 'Tap "Unknown & Spam"' },
+            { n: '4', t: 'Enable "Filter Unknown Senders" toggle' },
+            { n: '5', t: 'Select "SMS Cleaner" from the list and save' },
           ].map(item => (
             <View key={item.n} style={modal.row}>
               <View style={modal.badge}>
@@ -53,10 +53,10 @@ function IosGuideModal({ visible, onGoSettings, onClose }) {
             </View>
           ))}
           <TouchableOpacity style={modal.primaryBtn} onPress={onGoSettings} activeOpacity={0.85}>
-            <Text style={modal.primaryBtnText}>Mesajlar Ayarlarına Git →</Text>
+            <Text style={modal.primaryBtnText}>Go to Messages Settings →</Text>
           </TouchableOpacity>
           <TouchableOpacity style={modal.cancelBtn} onPress={onClose}>
-            <Text style={modal.cancelBtnText}>Vazgeç</Text>
+            <Text style={modal.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -64,7 +64,7 @@ function IosGuideModal({ visible, onGoSettings, onClose }) {
   );
 }
 
-// ─── Ana Ekran ────────────────────────────────────────────────────────────────
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ProtectionScreen() {
   const [status, setStatus] = useState(STATUS.UNPROTECTED);
   const [loading, setLoading] = useState(true);
@@ -73,10 +73,8 @@ export default function ProtectionScreen() {
   const wentToSettingsRef = useRef(false);
   const settingsOpenTimeRef = useRef(null);
 
-  // ── iOS: App Groups shared container'dan extension'ın çalışıp çalışmadığını kontrol et
+  // ── iOS: Check if extension ran via App Groups shared container
   const checkIosExtensionRan = useCallback(() => {
-    // Native module ile UserDefaults App Group okuma
-    // Gerçek cihazda çalışır, simulatorda false döner
     try {
       const SharedDefaults = NativeModules.SharedDefaults;
       if (SharedDefaults?.getBool) {
@@ -86,14 +84,14 @@ export default function ProtectionScreen() {
     return false;
   }, []);
 
-  // ── Android: OS iznine bak ───────────────────────────────────────────────
+  // ── Android: Check OS permission
   const checkAndroidPermission = useCallback(async () => {
     const receive = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS);
     const read = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
     return receive && read;
   }, []);
 
-  // ── Durum yükle ──────────────────────────────────────────────────────────
+  // ── Load state
   const loadState = useCallback(async () => {
     try {
       if (Platform.OS === 'android') {
@@ -104,7 +102,7 @@ export default function ProtectionScreen() {
         if (iosFlag !== 'true') {
           setStatus(STATUS.UNPROTECTED);
         } else {
-          // "Evet" denmiş — extension gerçekten çalıştı mı?
+          // User confirmed — did the extension actually run?
           const extensionRan = checkIosExtensionRan();
           setStatus(extensionRan ? STATUS.PROTECTED : STATUS.PENDING);
         }
@@ -118,7 +116,7 @@ export default function ProtectionScreen() {
 
   useEffect(() => { loadState(); }, [loadState]);
 
-  // ── AppState: öne gelince yeniden kontrol ────────────────────────────────
+  // ── AppState: re-check when app comes to foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', async nextState => {
       const prev = appStateRef.current;
@@ -133,39 +131,39 @@ export default function ProtectionScreen() {
           const elapsed = Date.now() - (settingsOpenTimeRef.current || 0);
 
           if (elapsed < 5000) {
-            // Çok hızlı döndü
+            // Returned too quickly
             Alert.alert(
-              '⚠️ Çok Hızlı Döndünüz',
-              'SMS Cleaner\'ı etkinleştirmek için yeterli süre geçmedi.\n\nAyarlar › Mesajlar › Bilinmeyen ve Spam bölümünden etkinleştirin.',
+              '⚠️ Returned Too Quickly',
+              'You did not spend enough time in Settings.\n\nPlease go to Settings › Messages › Unknown & Spam and enable SMS Cleaner.',
               [
                 {
-                  text: 'Tekrar Dene',
+                  text: 'Try Again',
                   onPress: () => {
                     wentToSettingsRef.current = true;
                     settingsOpenTimeRef.current = Date.now();
                     Linking.openURL('App-prefs:root=MESSAGES').catch(() => Linking.openSettings());
                   },
                 },
-                { text: 'Vazgeç', style: 'cancel' },
+                { text: 'Cancel', style: 'cancel' },
               ],
               { cancelable: false },
             );
           } else {
-            // Yeterli süre geçti — kullanıcıya sor
+            // Enough time passed — ask the user
             Alert.alert(
-              'SMS Cleaner\'ı etkinleştirdiniz mi?',
-              'Mesajlar › Bilinmeyen ve Spam bölümünden SMS Cleaner\'ı seçtiniz mi?',
+              'Did you enable SMS Cleaner?',
+              'Did you select SMS Cleaner under Messages › Unknown & Spam?',
               [
                 {
-                  text: 'Hayır, Etkinleştirmedim',
+                  text: 'No, I Did Not',
                   style: 'cancel',
                   onPress: () => setStatus(STATUS.UNPROTECTED),
                 },
                 {
-                  text: 'Evet, Seçtim ✓',
+                  text: 'Yes, I Selected It ✓',
                   onPress: async () => {
                     await setSetting('ios_filter_enabled', 'true');
-                    // Gerçek doğrulama extension'ın çalışmasıyla olur
+                    // Real verification happens when the extension runs
                     setStatus(STATUS.PENDING);
                   },
                 },
@@ -174,7 +172,7 @@ export default function ProtectionScreen() {
             );
           }
         } else {
-          // Pending durumunda extension çalıştı mı kontrol et
+          // In pending state — check if extension has run
           if (status === STATUS.PENDING) {
             const ran = checkIosExtensionRan();
             if (ran) setStatus(STATUS.PROTECTED);
@@ -185,7 +183,7 @@ export default function ProtectionScreen() {
     return () => sub.remove();
   }, [checkAndroidPermission, checkIosExtensionRan, status]);
 
-  // ── Android izin iste ────────────────────────────────────────────────────
+  // ── Request Android permissions
   const requestAndroidPermission = useCallback(async () => {
     const alreadyGranted = await checkAndroidPermission();
     if (alreadyGranted) { setStatus(STATUS.PROTECTED); return; }
@@ -194,7 +192,7 @@ export default function ProtectionScreen() {
       PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
       PermissionsAndroid.PERMISSIONS.READ_SMS,
     ];
-    // Android 13+ bildirim izni
+    // Android 13+ notification permission
     if (Platform.Version >= 33) {
       permsToRequest.push('android.permission.POST_NOTIFICATIONS');
     }
@@ -204,15 +202,15 @@ export default function ProtectionScreen() {
 
     if (!ok && Object.values(result).some(s => s === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN)) {
       Alert.alert(
-        'İzin Gerekli',
-        'SMS izinleri reddedildi. Ayarlar\'dan manuel olarak açın.',
-        [{ text: 'Vazgeç', style: 'cancel' }, { text: 'Ayarlara Git', onPress: () => Linking.openSettings() }],
+        'Permission Required',
+        'SMS permissions were denied. Please enable them manually in Settings.',
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Open Settings', onPress: () => Linking.openSettings() }],
       );
     }
     setStatus(ok ? STATUS.PROTECTED : STATUS.UNPROTECTED);
   }, [checkAndroidPermission]);
 
-  // ── iOS ayarlara git ────────────────────────────────────────────────────
+  // ── Navigate to iOS settings
   const goToIosSettings = useCallback(async () => {
     setShowGuide(false);
     wentToSettingsRef.current = true;
@@ -226,7 +224,7 @@ export default function ProtectionScreen() {
     Platform.OS === 'android' ? requestAndroidPermission() : setShowGuide(true);
   };
 
-  // ── UI hesaplamaları ─────────────────────────────────────────────────────
+  // ── UI calculations
   const shieldColor =
     status === STATUS.PROTECTED ? COLORS.green :
     status === STATUS.PENDING   ? COLORS.yellow :
@@ -243,14 +241,14 @@ export default function ProtectionScreen() {
     '🔓';
 
   const titleText =
-    status === STATUS.PROTECTED ? 'Korunuyorsunuz ✓' :
-    status === STATUS.PENDING   ? 'Beklemede...' :
-    'Korunmuyorsunuz';
+    status === STATUS.PROTECTED ? 'You Are Protected ✓' :
+    status === STATUS.PENDING   ? 'Pending...' :
+    'Not Protected';
 
   const subText =
-    status === STATUS.PROTECTED ? 'SMS Cleaner aktif — otomatik çalışıyor' :
-    status === STATUS.PENDING   ? 'İlk şüpheli SMS geldiğinde otomatik doğrulanacak' :
-    'SMS Cleaner\'ın çalışabilmesi için izin gerekiyor';
+    status === STATUS.PROTECTED ? 'SMS Cleaner is active — running automatically' :
+    status === STATUS.PENDING   ? 'Will be verified automatically when the first suspicious SMS arrives' :
+    'SMS Cleaner needs permission to work';
 
   if (loading) return <View style={styles.container} />;
 
@@ -258,7 +256,7 @@ export default function ProtectionScreen() {
     <View style={styles.container}>
       <IosGuideModal visible={showGuide} onGoSettings={goToIosSettings} onClose={() => setShowGuide(false)} />
 
-      {/* Kalkan */}
+      {/* Shield */}
       <View style={styles.shieldWrap}>
         {status !== STATUS.UNPROTECTED && (
           <View style={[styles.pulseRing, { borderColor: shieldColor + '18' }]} />
@@ -270,21 +268,21 @@ export default function ProtectionScreen() {
         </View>
       </View>
 
-      {/* Durum */}
+      {/* Status */}
       <View style={styles.statusBlock}>
         <Text style={[styles.statusTitle, { color: shieldColor }]}>{titleText}</Text>
         <Text style={styles.statusSub}>{subText}</Text>
       </View>
 
-      {/* Buton — korumasız veya beklemedeyken */}
+      {/* Buttons */}
       {status === STATUS.UNPROTECTED && (
         <TouchableOpacity style={styles.btn} activeOpacity={0.85} onPress={handlePermissionButton}>
-          <Text style={styles.btnText}>İzin Ver</Text>
+          <Text style={styles.btnText}>Grant Permission</Text>
         </TouchableOpacity>
       )}
       {status === STATUS.PENDING && Platform.OS === 'ios' && (
         <TouchableOpacity style={styles.retryBtn} activeOpacity={0.85} onPress={() => setShowGuide(true)}>
-          <Text style={styles.retryBtnText}>↺  Tekrar Dene</Text>
+          <Text style={styles.retryBtnText}>↺  Try Again</Text>
         </TouchableOpacity>
       )}
 
